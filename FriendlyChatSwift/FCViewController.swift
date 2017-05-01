@@ -111,7 +111,9 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     func configureStorage() {
-        // TODO: configure storage using your firebase storage
+        
+        storageRef = FIRStorage.storage().reference()
+        
     }
     
     deinit {
@@ -148,8 +150,10 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
             messagesTable.estimatedRowHeight = 122.0
             backgroundBlur.effect = nil
             messageTextField.delegate = self
+        
+            configureDatabase()
+            configureStorage()
             
-            // TODO: Set up app to send and receive messages when signed in
         }
     }
     
@@ -169,7 +173,26 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     func sendPhotoMessage(photoData: Data) {
-        // TODO: create method that pushes message w/ photo to the firebase database
+
+        //build a path using the user's ID and a timestamp
+        let imagePath = "chat_photos/" + FIRAuth.auth()!.currentUser!.uid + "/\(Double(Date.timeIntervalSinceReferenceDate * 1000)).jpg"
+        
+        //set content type to "image/jpeg" in firebase storage meta data
+        let metadata = FIRStorageMetadata()
+        metadata.contentType = "image/jpeg"
+        
+        //create a child node at imagePath with photoData and metadata
+        storageRef!.child(imagePath).put(photoData, metadata: metadata) { (metadata, error) in
+            
+            if let error = error {
+                print("error uploading: \(error)")
+                return
+            }
+            
+            //use sendMessage to add imageURL to database
+            self.sendMessage(data: [Constants.MessageFields.imageUrl: self.storageRef!.child((metadata?.path)!).description])
+            
+        }
     }
     
     // MARK: Alert
@@ -249,6 +272,9 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
         let messageSnapshot: FIRDataSnapshot! = messages[indexPath.row]
         let message = messageSnapshot.value as! [String: String]
         let name = message[Constants.MessageFields.name] ?? "[username]"
+        
+        
+        
         let text = message[Constants.MessageFields.text] ?? "[message]"
         
         cell.textLabel?.text = name + ": " + text
